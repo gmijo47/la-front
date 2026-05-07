@@ -1,0 +1,10 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { min-height: 100vh; }
+.v-application { min-height: 100vh !important; }
+.v-application__wrap { min-height: 100vh !important; }
