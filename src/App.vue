@@ -1,11 +1,50 @@
 <script setup>
 import { useTheme } from 'vuetify'
-import { computed } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import DockNav from './components/DockNav.vue'
 import Mascot from './components/Mascot.vue'
 
 const theme = useTheme()
 const isDark = computed(() => theme.global.name.value === 'darkTheme')
+
+const showGlasses = ref(false)
+let glassesTimer = null
+let autoDarkTimer = null
+
+function startGlassesTimer() {
+  clearTimeout(glassesTimer)
+  clearTimeout(autoDarkTimer)
+  // Only on non-mobile (≥ 768px)
+  if (window.innerWidth < 768) return
+  glassesTimer = setTimeout(() => {
+    showGlasses.value = true
+    // After glasses appear: switch to dark first, then glasses slide down
+    autoDarkTimer = setTimeout(() => {
+      theme.global.name.value = 'darkTheme'
+      setTimeout(() => { showGlasses.value = false }, 400)
+    }, 10000)
+  }, 2500)
+}
+
+function clearGlasses() {
+  clearTimeout(glassesTimer)
+  clearTimeout(autoDarkTimer)
+  showGlasses.value = false
+}
+
+watch(isDark, (dark) => {
+  if (dark) clearGlasses()
+  else startGlassesTimer()
+})
+
+onMounted(() => {
+  if (!isDark.value) startGlassesTimer()
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(glassesTimer)
+  clearTimeout(autoDarkTimer)
+})
 
 function toggleTheme() {
   theme.global.name.value = isDark.value ? 'lightTheme' : 'darkTheme'
@@ -39,6 +78,17 @@ function toggleTheme() {
 
     <!-- Mascot -->
     <Mascot />
+
+    <!-- Glasses Easter Egg (light theme only, after 3s) -->
+    <Transition name="glasses-rise">
+      <div v-if="showGlasses" class="glasses-container">
+        <div class="gl-arm gl-arm-left"></div>
+        <div class="gl-lens gl-lens-left"></div>
+        <div class="gl-bridge"></div>
+        <div class="gl-lens gl-lens-right"></div>
+        <div class="gl-arm gl-arm-right"></div>
+      </div>
+    </Transition>
   </v-app>
 </template>
 
@@ -229,5 +279,70 @@ function toggleTheme() {
 .v-theme--lightTheme .ffc-name    { color: #0f172a !important; }
 .v-theme--lightTheme .ffc-desc    { color: #334155 !important; opacity: 1 !important; }
 .v-theme--lightTheme .ffc-scale   { background: rgba(15,23,42,0.07) !important; color: #475569 !important; opacity: 1 !important; }
+
+/* ── Glasses Easter Egg ── */
+.glasses-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9990;
+}
+/* Each lens = 38vw diameter, centers at 29vw and 71vw */
+.gl-lens {
+  position: absolute;
+  width: 38vw;
+  height: 38vw;
+  border-radius: 50%;
+  background: transparent;
+  backdrop-filter: invert(1) hue-rotate(190deg) brightness(0.82) contrast(1.1) saturate(1.2);
+  -webkit-backdrop-filter: invert(1) hue-rotate(190deg) brightness(0.82) contrast(1.1) saturate(1.2);
+  border: 0.8vw solid #1e293b;
+  top: calc(42vh - 19vw);
+  box-shadow: 0 0 0 0.2vw rgba(30,41,59,0.5);
+}
+.gl-lens-left  { left: calc(29vw - 19vw); }
+.gl-lens-right { left: calc(71vw - 19vw); }
+.gl-bridge {
+  position: absolute;
+  top: calc(42vh - 0.4vw);
+  left: calc(29vw + 19vw);
+  width: calc(71vw - 19vw - 48vw);
+  height: 0.8vw;
+  background: #1e293b;
+  border-radius: 0.4vw;
+}
+.gl-arm {
+  position: absolute;
+  top: calc(42vh - 0.4vw);
+  height: 0.8vw;
+  background: #1e293b;
+  border-radius: 0.4vw;
+}
+.gl-arm-left  { left: 0; width: calc(29vw - 19vw); }
+.gl-arm-right { left: calc(71vw + 19vw); right: 0; }
+
+/* Hide entirely on mobile */
+@media (max-width: 767px) {
+  .glasses-container { display: none; }
+}
+
+@keyframes glasses-rise {
+  0%   { transform: translateY(115vh); }
+  55%  { transform: translateY(-45px); }
+  70%  { transform: translateY(22px); }
+  84%  { transform: translateY(-10px); }
+  93%  { transform: translateY(4px); }
+  100% { transform: translateY(0); }
+}
+.glasses-rise-enter-active {
+  animation: glasses-rise 4.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.glasses-rise-leave-active {
+  transition: transform 0.6s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.5s;
+}
+.glasses-rise-leave-to {
+  transform: translateY(100vh);
+  opacity: 0;
+}
 </style>
 

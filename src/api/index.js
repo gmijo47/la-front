@@ -19,7 +19,7 @@ export const getScatter          = (x, y, n)    => api.get(`/graphs/scatter/${x}
 export const getFeatureVsStress  = (feat)       => api.get(`/graphs/feature-vs-stress/${feat}`)
 
 // ── Prediction ────────────────────────────────────────────────────────────
-export const predict           = (payload) => api.post('/predict', payload)
-export const predictBasic      = (payload) => api.post('/predict/basic', payload)
-export const predictLifestyle  = (payload) => api.post('/predict/lifestyle', payload)
-export const getModelMetrics   = ()        => api.get('/model/metrics')
+export const predict            = (payload) => api.post('/predict', payload)
+export const predictLifestyle   = (payload) => api.post('/predict/lifestyle', payload)
+export const predictRegression  = (payload) => api.post('/predict/regression', payload)
+export const getModelMetrics    = ()        => api.get('/model/metrics')

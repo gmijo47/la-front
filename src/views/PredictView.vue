@@ -196,6 +196,20 @@ const RMETA = {
   Medium: { c: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.3)',  icon: 'mdi-emoticon-neutral' },
   High:   { c: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.3)',   icon: 'mdi-emoticon-sad'     },
 }
+
+// Anxiety severity bands (GAD-7 scale)
+const ANX_BANDS = [
+  { lbl: 'Minimal',  range: '0–4',   max: 4,  c: '#10b981' },
+  { lbl: 'Mild',     range: '5–9',   max: 9,  c: '#67e8f9' },
+  { lbl: 'Moderate', range: '10–14', max: 14, c: '#f59e0b' },
+  { lbl: 'Severe',   range: '15–21', max: 21, c: '#ef4444' },
+]
+function anxMeta(val) {
+  if (val <= 4)  return { lbl: 'Minimal Anxiety',  c: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)',  icon: 'mdi-emoticon-happy'        }
+  if (val <= 9)  return { lbl: 'Mild Anxiety',     c: '#67e8f9', bg: 'rgba(103,232,249,0.1)',  border: 'rgba(103,232,249,0.3)', icon: 'mdi-emoticon-neutral'      }
+  if (val <= 14) return { lbl: 'Moderate Anxiety', c: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.3)',  icon: 'mdi-emoticon-confused'     }
+  return               { lbl: 'Severe Anxiety',   c: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.3)',   icon: 'mdi-emoticon-sad'          }
+}
 const rmeta = computed(() => result.value ? RMETA[result.value.stress_label] ?? RMETA.Low : null)
 const classLabel = { 0: 'Low', 1: 'Medium', 2: 'High' }
 const classColor = { 0: '#10b981', 1: '#f59e0b', 2: '#ef4444' }
@@ -214,10 +228,10 @@ const STEPS = ['PHQ-9', 'GAD-7', 'RSE', 'Factors']
           <p class="mode-sel-sub">Each mode uses a different amount of information to estimate your stress level.</p>
           <div class="mode-cards" style="grid-template-columns: 1fr 1fr">
             <div class="mode-card" @click="mode = 'quick'">
-              <div class="mode-badge lr-badge">Logistic Regression</div>
+              <div class="mode-badge reg-badge">Regression NN</div>
               <v-icon icon="mdi-flash" size="32" color="#f59e0b" class="mb-2"/>
               <div class="mode-card-title">Quick</div>
-              <p class="mode-card-desc">Rate 6 lifestyle factors — sleep, academic performance, study load, social support, safety &amp; basic needs. Instant result using Logistic Regression.</p>
+              <p class="mode-card-desc">Rate 6 lifestyle factors — sleep, academic performance, study load, social support, safety &amp; basic needs. Predicts your <strong>anxiety level</strong> (0–21) using a regression neural network.</p>
               <div class="mode-card-action">Select →</div>
             </div>
             <div class="mode-card mode-card-primary" @click="mode = 'advanced'">
@@ -236,11 +250,11 @@ const STEPS = ['PHQ-9', 'GAD-7', 'RSE', 'Factors']
         <div v-if="mode === 'quick' && !quickResult" key="quick-form">
           <div class="mode-header">
             <button class="btn-back" @click="mode = null"><v-icon icon="mdi-arrow-left" size="16"/> Back</button>
-            <div class="mode-badge lr-badge">Quick · Logistic Regression</div>
+            <div class="mode-badge reg-badge">Quick · Regression NN</div>
           </div>
           <div class="q-card" style="padding: 24px;">
-            <div class="q-card-title" style="margin-bottom:6px;">Lifestyle Quick Prediction</div>
-            <div class="q-card-sub" style="margin-bottom:28px;">Rate each factor — 0 = very poor/none, max = excellent/high.</div>
+            <div class="q-card-title" style="margin-bottom:6px;">Anxiety Level Quick Prediction</div>
+            <div class="q-card-sub" style="margin-bottom:28px;">Rate each lifestyle factor — the regression neural network will estimate your anxiety level (0–21).</div>
 
             <div class="slider-item">
               <div class="slider-meta"><span class="slider-lbl">Sleep Quality</span><span class="slider-val" style="color:#60a5fa">{{ quickSleep }} / 5</span></div>
@@ -283,7 +297,7 @@ const STEPS = ['PHQ-9', 'GAD-7', 'RSE', 'Factors']
             <button class="btn-predict" :disabled="quickLoading" @click="submitQuick">
               <v-progress-circular v-if="quickLoading" size="16" width="2" indeterminate />
               <v-icon v-else icon="mdi-flash" size="18"/>
-              {{ quickLoading ? 'Analysing…' : 'Quick Predict' }}
+              {{ quickLoading ? 'Analysing…' : 'Predict Anxiety Level' }}
             </button>
           </div>
           <div v-if="quickErr" class="err-box">{{ quickErr }}</div>
@@ -293,19 +307,24 @@ const STEPS = ['PHQ-9', 'GAD-7', 'RSE', 'Factors']
       <!-- Quick result -->
       <Transition name="fade-slide" mode="out-in">
         <div v-if="mode === 'quick' && quickResult" key="quick-result" class="result-wrap">
-          <div class="result-card" :style="{ background: RMETA[quickResult.stress_label]?.bg, borderColor: RMETA[quickResult.stress_label]?.border }">
-            <v-icon :icon="RMETA[quickResult.stress_label]?.icon" size="64" :style="{ color: RMETA[quickResult.stress_label]?.c }" class="result-icon"/>
-            <div class="result-hint">Quick Prediction (Logistic Regression)</div>
-            <div class="result-main" :style="{ color: RMETA[quickResult.stress_label]?.c }">{{ quickResult.stress_label }}</div>
+          <div class="result-card" :style="{ background: anxMeta(quickResult.predicted_anxiety).bg, borderColor: anxMeta(quickResult.predicted_anxiety).border }">
+            <v-icon :icon="anxMeta(quickResult.predicted_anxiety).icon" size="64" :style="{ color: anxMeta(quickResult.predicted_anxiety).c }" class="result-icon"/>
+            <div class="result-hint">Quick Prediction (Regression Neural Network)</div>
+            <div class="result-main" :style="{ color: anxMeta(quickResult.predicted_anxiety).c }">
+              {{ quickResult.predicted_anxiety.toFixed(1) }} <span style="font-size:1.1rem;opacity:0.6">/ 21</span>
+            </div>
+            <div class="result-sub" :style="{ color: anxMeta(quickResult.predicted_anxiety).c }">
+              {{ anxMeta(quickResult.predicted_anxiety).lbl }}
+            </div>
           </div>
           <div class="proba-card">
-            <div class="proba-title">Confidence Breakdown</div>
-            <div v-for="(prob, cls) in quickResult.confidence" :key="cls" class="proba-row">
-              <span class="proba-lbl">{{ classLabel[cls] }}</span>
+            <div class="proba-title">Anxiety Scale Reference</div>
+            <div v-for="band in ANX_BANDS" :key="band.lbl" class="proba-row">
+              <span class="proba-lbl">{{ band.lbl }}</span>
               <div class="proba-track">
-                <div class="proba-fill" :style="{ width: (prob*100).toFixed(1)+'%', background: classColor[cls] }"/>
+                <div class="proba-fill" :style="{ width: (band.max/21*100).toFixed(1)+'%', background: band.c }"/>
               </div>
-              <span class="proba-pct" :style="{ color: classColor[cls] }">{{ (prob*100).toFixed(1) }}%</span>
+              <span class="proba-pct" :style="{ color: band.c }">{{ band.range }}</span>
             </div>
           </div>
           <button class="btn-restart" @click="restart"><v-icon icon="mdi-refresh" size="16"/> Try Again</button>
@@ -583,6 +602,7 @@ const STEPS = ['PHQ-9', 'GAD-7', 'RSE', 'Factors']
 .mode-badge { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; margin-bottom: 4px; }
 .lr-badge { background: rgba(245,158,11,0.15); color: #fbbf24; }
 .nn-badge { background: rgba(37,99,235,0.15); color: #60a5fa; }
+.reg-badge { background: rgba(16,185,129,0.15); color: #34d399; }
 .mode-card-title { font-size: 1.1rem; font-weight: 700; }
 .mode-card-desc { font-size: 0.78rem; color: rgba(148,163,184,0.75); line-height: 1.5; }
 .mode-card-action { font-size: 0.76rem; color: rgba(37,99,235,0.8); font-weight: 600; margin-top: 4px; }
@@ -836,6 +856,7 @@ const STEPS = ['PHQ-9', 'GAD-7', 'RSE', 'Factors']
 }
 .result-hint { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.45; }
 .result-main { font-size: 3.2rem; font-weight: 900; letter-spacing: -1px; line-height: 1; margin-top: 6px; }
+.result-sub  { font-size: 0.9rem; font-weight: 600; opacity: 0.8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .proba-card {
   border: 1px solid rgba(255,255,255,0.07);

@@ -24,6 +24,14 @@ const NN_LAYERS = [
   { n:3,   label:'Output', note:'Softmax',              color:'#10b981', bg:'rgba(16,185,129,0.1)'  },
 ]
 
+const REG_LAYERS = [
+  { n:18,  label:'Input',  note:'18 features',          color:'#60a5fa', bg:'rgba(96,165,250,0.1)'  },
+  { n:128, label:'Dense',  note:'ReLU · BN · Drop 0.3', color:'#a78bfa', bg:'rgba(167,139,250,0.09)'},
+  { n:64,  label:'Dense',  note:'ReLU · BN · Drop 0.3', color:'#c084fc', bg:'rgba(192,132,252,0.08)'},
+  { n:32,  label:'Dense',  note:'ReLU · Drop 0.2',      color:'#f59e0b', bg:'rgba(245,158,11,0.09)' },
+  { n:1,   label:'Output', note:'Linear',               color:'#f472b6', bg:'rgba(244,114,182,0.1)' },
+]
+
 const featMode = ref('mascot')
 
 const CAT_COLOR = {
@@ -113,8 +121,8 @@ onMounted(async () => {
           <span class="hs-l">NN Acc.</span>
         </div>
         <div class="hs">
-          <span class="hs-n" style="color:#f472b6">{{ metrics ? (metrics.lr_accuracy*100).toFixed(1)+'%' : '…' }}</span>
-          <span class="hs-l">LR Acc.</span>
+          <span class="hs-n" style="color:#f472b6">{{ metrics ? metrics.reg_r2.toFixed(3) : '…' }}</span>
+          <span class="hs-l">Reg R²</span>
         </div>
       </div>
     </div>
@@ -153,14 +161,15 @@ onMounted(async () => {
 
     <!-- ── Model Performance ─────────────────────────────────────────── -->
     <div class="row-equal" v-if="metrics">
-      <div class="glass-card" v-for="m in ['nn','lr']" :key="m">
+      <!-- Classification NN -->
+      <div class="glass-card">
         <div class="model-head">
           <div>
-            <div class="model-name">{{ m==='nn' ? 'Neural Network' : 'Logistic Regression' }}</div>
-            <div class="model-hint">{{ m==='nn' ? 'Sequential · Adam · SparseCCE' : 'C=1.0 · StandardScaler · Softmax' }}</div>
+            <div class="model-name">Classification Neural Network</div>
+            <div class="model-hint">Sequential · Adam · SparseCCE · 19 → 128 → 64 → 32 → 3</div>
           </div>
-          <div class="big-acc" :style="{color: m==='nn' ? '#a3e635' : '#f472b6'}">
-            {{ (metrics[m+'_accuracy']*100).toFixed(1) }}<span class="big-acc-unit">%</span>
+          <div class="big-acc" style="color:#a3e635">
+            {{ (metrics.nn_accuracy*100).toFixed(1) }}<span class="big-acc-unit">%</span>
           </div>
         </div>
 
@@ -172,9 +181,9 @@ onMounted(async () => {
               <div v-for="key in ['precision','recall','f1-score']" :key="key" class="mr-bar-wrap">
                 <span class="mr-key">{{ {precision:'Pre',recall:'Rec','f1-score':'F1'}[key] }}</span>
                 <div class="mr-track">
-                  <div class="mr-fill" :style="{width:(metrics[m+'_report'][cls]?.[key]*100)+'%',background:CCLR[cls]}"></div>
+                  <div class="mr-fill" :style="{width:(metrics.nn_report[cls]?.[key]*100)+'%',background:CCLR[cls]}"></div>
                 </div>
-                <span class="mr-val">{{ (metrics[m+'_report'][cls]?.[key]*100).toFixed(0) }}%</span>
+                <span class="mr-val">{{ (metrics.nn_report[cls]?.[key]*100).toFixed(0) }}%</span>
               </div>
             </div>
           </div>
@@ -190,7 +199,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row,ri) in metrics[m+'_cm']" :key="ri">
+              <tr v-for="(row,ri) in metrics.nn_cm" :key="ri">
                 <td class="cm-rl">{{ CLS[ri][0] }}</td>
                 <td v-for="(val,ci) in row" :key="ci" class="cm-cell"
                   :style="{
@@ -202,46 +211,214 @@ onMounted(async () => {
           </table>
         </div>
       </div>
+
+      <!-- Regression NN -->
+      <div class="glass-card">
+        <div class="model-head">
+          <div>
+            <div class="model-name">Regression Neural Network</div>
+            <div class="model-hint">Sequential · Adam · MSE · 18 → 128 → 64 → 32 → 1 (linear)</div>
+          </div>
+          <div class="big-acc" style="color:#f472b6">
+            {{ metrics.reg_r2.toFixed(3) }}<span class="big-acc-unit" style="font-size:0.9rem"> R²</span>
+          </div>
+        </div>
+
+        <div class="card-label sect-mt">Regression metrics (test set)</div>
+        <div class="reg-metrics-grid">
+          <div class="reg-metric-cell">
+            <span class="reg-metric-val" style="color:#60a5fa">{{ metrics.reg_mae.toFixed(3) }}</span>
+            <span class="reg-metric-lbl">MAE</span>
+            <span class="reg-metric-hint">Mean Absolute Error</span>
+          </div>
+          <div class="reg-metric-cell">
+            <span class="reg-metric-val" style="color:#a78bfa">{{ metrics.reg_mse.toFixed(3) }}</span>
+            <span class="reg-metric-lbl">MSE</span>
+            <span class="reg-metric-hint">Mean Squared Error</span>
+          </div>
+          <div class="reg-metric-cell">
+            <span class="reg-metric-val" style="color:#f472b6">{{ metrics.reg_rmse.toFixed(3) }}</span>
+            <span class="reg-metric-lbl">RMSE</span>
+            <span class="reg-metric-hint">√MSE</span>
+          </div>
+          <div class="reg-metric-cell">
+            <span class="reg-metric-val" style="color:#34d399">{{ metrics.reg_r2.toFixed(3) }}</span>
+            <span class="reg-metric-lbl">R²</span>
+            <span class="reg-metric-hint">Coeff. of Determination</span>
+          </div>
+        </div>
+
+        <div class="card-label sect-mt">Target variable</div>
+        <div class="reg-target-info">
+          <v-icon icon="mdi-alert-circle" size="18" color="#60a5fa" style="flex-shrink:0"/>
+          <div>
+            <div style="font-weight:700;font-size:0.9rem">anxiety_level</div>
+            <div style="font-size:0.75rem;opacity:0.5;margin-top:2px">Continuous · GAD-7 scale (0–21) · 18 input features</div>
+          </div>
+        </div>
+      </div>
     </div>
     <div v-else class="spin-row"><v-progress-circular indeterminate color="primary" size="28"/></div>
 
-    <!-- ── NN Architecture ────────────────────────────────────────────── -->
-    <div class="glass-card">
-      <div class="card-label">Neural Network Architecture</div>
-      <div class="arch-row">
-        <template v-for="(layer,i) in NN_LAYERS" :key="i">
-          <div class="arch-col">
-            <div class="arch-node" :style="{border:'1.5px solid '+layer.color,background:layer.bg}">
-              <span class="arch-n" :style="{color:layer.color}">{{ layer.n }}</span>
-              <span class="arch-u">{{ layer.label }}</span>
+    <!-- ── NN Architecture & Training Setup ──────────────────────────── -->
+    <div class="row-equal">
+
+      <!-- Classification NN -->
+      <div class="glass-card">
+        <div class="card-label">Classification NN — Architecture</div>
+        <div class="arch-row">
+          <template v-for="(layer, i) in NN_LAYERS" :key="i">
+            <div class="arch-col">
+              <div class="arch-node" :style="{background: layer.bg, border: `1px solid ${layer.color}33`}">
+                <span class="arch-n" :style="{color: layer.color}">{{ layer.n }}</span>
+                <span class="arch-u">{{ layer.label }}</span>
+              </div>
+              <div class="arch-note">{{ layer.note }}</div>
             </div>
-            <div class="arch-note">{{ layer.note }}</div>
+            <div v-if="i < NN_LAYERS.length - 1" class="arch-arrow">→</div>
+          </template>
+        </div>
+
+        <div class="card-label sect-mt">Training Configuration</div>
+        <div class="train-cfg">
+          <div class="tcfg-row">
+            <span class="tcfg-k">Optimizer</span>
+            <span class="tcfg-v">Adam · lr = 0.001 · β₁ = 0.9 · β₂ = 0.999</span>
           </div>
-          <div v-if="i<NN_LAYERS.length-1" class="arch-arrow">→</div>
-        </template>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Loss</span>
+            <span class="tcfg-v">SparseCategoricalCrossentropy</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Batch size</span>
+            <span class="tcfg-v">32</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Max epochs</span>
+            <span class="tcfg-v">200 (EarlyStopping active)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Early stopping</span>
+            <span class="tcfg-v">patience = 20 · monitor = val_accuracy · restore_best_weights = True</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Best epoch</span>
+            <span class="tcfg-v">2 · val_accuracy = 90.00 %</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Preprocessing</span>
+            <span class="tcfg-v">StandardScaler on X (fit on train only, applied to val + test)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Label encoding</span>
+            <span class="tcfg-v">LabelEncoder → Low = 0, Medium = 1, High = 2</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Regularization</span>
+            <span class="tcfg-v">BatchNormalization + Dropout (0.3 hidden, 0.2 last)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Test accuracy</span>
+            <span class="tcfg-v tcfg-highlight">{{ metrics ? (metrics.nn_accuracy * 100).toFixed(2) + ' %' : '—' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Regression NN -->
+      <div class="glass-card">
+        <div class="card-label">Regression NN — Architecture</div>
+        <div class="arch-row">
+          <template v-for="(layer, i) in REG_LAYERS" :key="i">
+            <div class="arch-col">
+              <div class="arch-node" :style="{background: layer.bg, border: `1px solid ${layer.color}33`}">
+                <span class="arch-n" :style="{color: layer.color}">{{ layer.n }}</span>
+                <span class="arch-u">{{ layer.label }}</span>
+              </div>
+              <div class="arch-note">{{ layer.note }}</div>
+            </div>
+            <div v-if="i < REG_LAYERS.length - 1" class="arch-arrow">→</div>
+          </template>
+        </div>
+
+        <div class="card-label sect-mt">Training Configuration</div>
+        <div class="train-cfg">
+          <div class="tcfg-row">
+            <span class="tcfg-k">Optimizer</span>
+            <span class="tcfg-v">Adam · lr = 0.001 · β₁ = 0.9 · β₂ = 0.999</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Loss</span>
+            <span class="tcfg-v">MSE (Mean Squared Error)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Batch size</span>
+            <span class="tcfg-v">32</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Max epochs</span>
+            <span class="tcfg-v">300 (EarlyStopping active)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Early stopping</span>
+            <span class="tcfg-v">patience = 20 · monitor = val_mse · restore_best_weights = True</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Best epoch</span>
+            <span class="tcfg-v">31 · val_mse = 0.0295</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Preprocessing X</span>
+            <span class="tcfg-v">StandardScaler on X (fit on train only, applied to val + test)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Preprocessing y</span>
+            <span class="tcfg-v">MinMaxScaler → [0, 1] mapping anxiety [0, 21] (fit on train only)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Regularization</span>
+            <span class="tcfg-v">BatchNormalization + Dropout (0.3 hidden, 0.2 last)</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Test MAE</span>
+            <span class="tcfg-v tcfg-highlight">{{ metrics ? metrics.reg_mae : '—' }}</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Test RMSE</span>
+            <span class="tcfg-v tcfg-highlight">{{ metrics ? metrics.reg_rmse : '—' }}</span>
+          </div>
+          <div class="tcfg-row">
+            <span class="tcfg-k">Test R²</span>
+            <span class="tcfg-v tcfg-highlight">{{ metrics ? metrics.reg_r2 : '—' }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- ── LR Feature Weights ─────────────────────────────────────────── -->
-    <div class="glass-card" v-if="metrics">
-      <div class="card-label">LR Feature Importance — Coefficients per Class</div>
-      <div class="three-col">
-        <div v-for="cls in CLS" :key="cls" class="fw-col">
-          <div class="fw-head"><span class="cls-dot" :style="{background:CCLR[cls]}"></span>{{ cls }}</div>
-          <div v-for="item in metrics.lr_top_features[cls]" :key="item.feature" class="fw-row">
-            <span class="fw-lbl">{{ item.feature.replace(/_/g,' ') }}</span>
-            <div class="fw-track">
-              <div class="fw-bar" :style="{
-                width:Math.min(Math.abs(item.weight)/2*100,100)+'%',
-                background: item.weight>=0 ? CCLR[cls] : '#67e8f9',
-                marginLeft: item.weight<0?'auto':'0'
-              }"></div>
-            </div>
-            <span class="fw-val" :style="{color:item.weight>=0?CCLR[cls]:'#67e8f9'}">
-              {{ item.weight>0?'+':'' }}{{ item.weight.toFixed(2) }}
-            </span>
-          </div>
+    <!-- ── Data Split & Preprocessing ────────────────────────────────── -->
+    <div class="glass-card">
+      <div class="card-label">Dataset Split — 60 / 20 / 20 · random_state = 42 · Stratified</div>
+      <div class="split-track">
+        <div class="split-seg" style="flex:3; background:rgba(96,165,250,0.18); border-color:rgba(96,165,250,0.38)">
+          <span class="split-lbl">Train</span>
+          <span class="split-n">660</span>
+          <span class="split-pct">60 %</span>
         </div>
+        <div class="split-seg" style="flex:1; background:rgba(167,139,250,0.18); border-color:rgba(167,139,250,0.38)">
+          <span class="split-lbl">Validation</span>
+          <span class="split-n">220</span>
+          <span class="split-pct">20 %</span>
+        </div>
+        <div class="split-seg" style="flex:1; background:rgba(16,185,129,0.18); border-color:rgba(16,185,129,0.38)">
+          <span class="split-lbl">Test</span>
+          <span class="split-n">220</span>
+          <span class="split-pct">20 %</span>
+        </div>
+      </div>
+      <div class="split-notes">
+        <span><v-icon icon="mdi-shield-check-outline" size="13"/>Stratified split preserves class distribution across all three sets</span>
+        <span><v-icon icon="mdi-shuffle-variant" size="13"/>random_state = 42 (fully reproducible)</span>
+        <span><v-icon icon="mdi-scale-balance" size="13"/>Balanced classes ≈ 33 % each in every split</span>
+        <span><v-icon icon="mdi-database-outline" size="13"/>Total dataset: {{ metrics ? metrics.dataset_rows : 1100 }} samples · {{ metrics ? metrics.dataset_cols : 21 }} columns</span>
       </div>
     </div>
 
@@ -402,7 +579,7 @@ onMounted(async () => {
 .arch-note { font-size: 0.6rem; opacity: 0.32; text-align: center; max-width: 90px; line-height: 1.4; white-space: nowrap; }
 .arch-arrow { font-size: 1.2rem; opacity: 0.18; padding: 0 8px; margin-top: 16px; }
 
-/* ── LR weights ── */
+/* ── LR weights (kept for backward compat, no longer used) ── */
 .fw-col {}
 .fw-head { font-size: 0.78rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 .fw-row  { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
@@ -410,6 +587,18 @@ onMounted(async () => {
 .fw-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; display: flex; }
 .fw-bar  { height: 100%; border-radius: 2px; min-width: 2px; transition: width 0.8s ease; }
 .fw-val  { font-size: 0.67rem; font-weight: 700; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Regression metrics grid ── */
+.reg-metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.reg-metric-cell  {
+  display: flex; flex-direction: column; align-items: center; padding: 12px 8px;
+  background: rgba(255,255,255,0.025); border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.reg-metric-val  { font-size: 1.35rem; font-weight: 800; line-height: 1; }
+.reg-metric-lbl  { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.45; margin-top: 4px; }
+.reg-metric-hint { font-size: 0.6rem; opacity: 0.28; margin-top: 2px; }
+.reg-target-info { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: rgba(96,165,250,0.07); border-radius: 10px; border: 1px solid rgba(96,165,250,0.15); margin-top: 4px; }
 
 /* ── Feature Index ── */
 .cat-groups { display: flex; flex-direction: column; gap: 16px; }
@@ -456,6 +645,38 @@ onMounted(async () => {
 .ffc-cat   { font-size: 0.59rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; }
 .ffc-scale { font-size: 0.62rem; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.06); opacity: 0.52; white-space: nowrap; flex-shrink: 0; }
 .ffc-desc  { font-size: 0.72rem; opacity: 0.42; line-height: 1.55; }
+
+/* ── Training config table ── */
+.sect-mt   { margin-top: 20px; }
+.train-cfg { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
+.tcfg-row  {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tcfg-row:last-child { border-bottom: none; }
+.tcfg-k    {
+  font-size: 0.67rem; opacity: 0.36; text-transform: uppercase;
+  letter-spacing: 0.65px; min-width: 116px; flex-shrink: 0;
+}
+.tcfg-v         { font-size: 0.81rem; font-weight: 600; line-height: 1.45; }
+.tcfg-highlight { color: #60a5fa; font-weight: 800; }
+
+/* ── Data split bar ── */
+.split-track { display: flex; gap: 5px; height: 80px; margin-bottom: 14px; }
+.split-seg   {
+  display: flex; flex-direction: column; justify-content: center;
+  align-items: center; gap: 2px; border-radius: 10px; border: 1px solid; padding: 8px 4px;
+}
+.split-lbl { font-size: 0.58rem; opacity: 0.48; text-transform: uppercase; letter-spacing: 0.8px; }
+.split-n   { font-size: 1.15rem; font-weight: 800; }
+.split-pct { font-size: 0.62rem; opacity: 0.4; }
+.split-notes {
+  display: flex; flex-wrap: wrap; gap: 18px;
+}
+.split-notes span {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.68rem; opacity: 0.35;
+}
 
 @media (max-width: 1000px) {
   .row-2-1 { grid-template-columns: 1fr; }

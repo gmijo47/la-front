@@ -68,22 +68,15 @@ const IDLE_MSGS_BABY = [
   'waaah 😭',
   'i want milkies 🥛',
   'nap time? 😴',
-  'googoo gaga',
-  'uuuh... 🧸',
-  'poo poo 💩',
-  'dada!! 🍼',
 ]
 const IDLE_MSGS_ADULT = [
-  '❤️ heyy',
+  'heyy',
   'what are you doing? 🥺',
   'i was thinking about you',
-  '😍😍😍',
-  'come online please',
   'been texting you all day',
-  '💌 you\'re mine',
-  'you know i love you? 🥰',
+  'you\'re mine',
+  'you know i love you?',
   'can\'t stop thinking...',
-  '🌹🌹',
 ]
 const currentIdleMsgs = computed(() =>
   mascotSize.value === 'baby' ? IDLE_MSGS_BABY : IDLE_MSGS_ADULT
